@@ -85,7 +85,7 @@ class AppDelegate
 
   private
 
-  def updateJukeboxControls
+  def updateJukeboxControls message
     case message
     when ::KyanJukebox::Track
       self.current_track = message
