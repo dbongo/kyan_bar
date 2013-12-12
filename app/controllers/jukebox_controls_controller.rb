@@ -27,171 +27,28 @@ class JukeboxControlsController < NSWindowController
   end
 
   def buttonsView
-    @buttonsView ||= NSView.alloc.init.tap do |buttonsView|
-      views_dictionary = {
-          "upVoteButton" => upVoteButton,
-          "downVoteButton" => downVoteButton
-      }
-      views_dictionary.each do |key, view|
-        buttonsView.addSubview(view)
-      end
-      buttonsView.translatesAutoresizingMaskIntoConstraints = false
-      constraints = []
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat "H:|[upVoteButton(==30)]|",
-                                                                options:NSLayoutFormatAlignAllCenterY,
-                                                                metrics:nil,
-                                                                views:views_dictionary
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat "H:|[downVoteButton(==30)]|",
-                                                                options:NSLayoutFormatAlignAllCenterY,
-                                                                metrics:nil,
-                                                                views:views_dictionary
-
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat "V:|[upVoteButton(==30)]-[downVoteButton(==30)]",
-                                                              options:NSLayoutFormatAlignAllCenterX,
-                                                              metrics:nil,
-                                                              views:views_dictionary
-      buttonsView.addConstraints constraints
-    end
-  end
-
-  def upVoteButton
-    @upVoteButton ||= NSButton.alloc.init.tap do |button|
-      button.translatesAutoresizingMaskIntoConstraints = false
-      button.setTitle "+"
-      button.setAction "sendVote:"
-    end
-  end
-
-  def downVoteButton
-    @downVoteButton ||= NSButton.alloc.init.tap do |button|
-      button.translatesAutoresizingMaskIntoConstraints = false
-      button.setTitle "-"
-      button.setAction "sendVote:"
-    end
-  end
-
-  def sendVote button
-    puts button
-    vote = button == upVoteButton
-    user = "paul"
-    raise "NO PASSWORD"
-    password = "..."
-    url = "http://jukebox.local/external?vote[aye]=#{vote}&login[user]=#{user}&login[password]=#{password}"
-    BW::HTTP.get(url) do |response|
-      #puts response.body.to_str
-    end
+    @buttonsView ||= ButtonsView.alloc.init
   end
 
   def trackDetailsView
-    @trackDetailsView ||= NSView.alloc.init.tap do |trackDetailsView|
-      views_dictionary = {
-          "artistTitleView" => artistTitleView,
-          "albumView" => albumView,
-          "positiveRatingsView" => positiveRatingsView,
-          "negativeRatingsView" => negativeRatingsView
-      }
-      views_dictionary.each do |key, view|
-        trackDetailsView.addSubview(view)
-      end
-      trackDetailsView.translatesAutoresizingMaskIntoConstraints = false
-      constraints = []
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat("H:|[artistTitleView(>=170)]|",
-                                                                options:NSLayoutFormatAlignAllCenterY,
-                                                                metrics:nil,
-                                                                views:views_dictionary)
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat "H:|[albumView]|",
-                                                                options:NSLayoutFormatAlignAllCenterY,
-                                                                metrics:nil,
-                                                                views:views_dictionary
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat "H:|[positiveRatingsView]|",
-                                                                options:NSLayoutFormatAlignAllCenterY,
-                                                                metrics:nil,
-                                                                views:views_dictionary
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat "H:|[negativeRatingsView]|",
-                                                                options:NSLayoutFormatAlignAllCenterY,
-                                                                metrics:nil,
-                                                                views:views_dictionary
-      constraints += NSLayoutConstraint.constraintsWithVisualFormat "V:|[artistTitleView][albumView]-[positiveRatingsView][negativeRatingsView]|",
-                                                                options:NSLayoutFormatAlignAllCenterX,
-                                                                metrics:nil,
-                                                                views:views_dictionary
-      trackDetailsView.addConstraints constraints
-    end
-  end
-
-  def artistTitleView
-    @artistTitleView ||= NSTextField.alloc.init.tap do |label|
-      label.translatesAutoresizingMaskIntoConstraints = false
-      label.editable = false
-      label.selectable  = false
-      label.drawsBackground = true
-      label.textColor = NSColor.blackColor
-      label.bordered  = false
-      label.alignment = NSLeftTextAlignment
-      label.backgroundColor = NSColor.clearColor
-    end
-  end
-
-  def albumView
-    @albumView ||= NSTextField.alloc.init.tap do |label|
-      label.translatesAutoresizingMaskIntoConstraints = false
-      label.editable = false
-      label.selectable  = false
-      label.drawsBackground = true
-      label.textColor = NSColor.grayColor
-      label.bordered  = false
-      label.alignment = NSLeftTextAlignment
-      label.backgroundColor = NSColor.clearColor
-    end
-  end
-
-  def negativeRatingsView
-    @negativeRatingsView ||= NSTextField.alloc.init.tap do |label|
-      label.translatesAutoresizingMaskIntoConstraints = false
-      label.editable = false
-      label.selectable  = false
-      label.drawsBackground = true
-      label.textColor = NSColor.blackColor
-      label.bordered  = false
-      label.alignment = NSLeftTextAlignment
-      label.backgroundColor = NSColor.clearColor
-    end
-  end
-
-  def positiveRatingsView
-    @positiveRatingsView ||= NSTextField.alloc.init.tap do |label|
-      label.translatesAutoresizingMaskIntoConstraints = false
-      label.editable = false
-      label.selectable  = false
-      label.drawsBackground = true
-      label.textColor = NSColor.blackColor
-      label.bordered  = false
-      label.alignment = NSLeftTextAlignment
-      label.backgroundColor = NSColor.clearColor
-    end
+    @trackDetailsView ||= TrackDetailsView.alloc.init
   end
 
   def new_message message
-    puts "new_message: #{message}"
-    case message
-    when ::KyanJukebox::Track
-      puts "New Track"
-      artistTitleView.stringValue = "#{message.artist} '#{message.title}'"
-      albumView.stringValue = message.album
-    when ::KyanJukebox::Rating
-      positiveRatingsView.stringValue = "+ #{message.positive_ratings.join(", ")}"
-      negativeRatingsView.stringValue = "- #{message.negative_ratings.join(", ")}"
-    end
+    trackDetailsView.new_message message
+  end
+
+  def registerVote button
+    VoteHandler.register(button.vote)
   end
 
   private
 
   def customizeWindow
-    if @window.contentView.subviews.include?(artistTitleView)
+    if @window.contentView.subviews.include?(artworkView)
       puts "Already customized window"
       return
     end
-    puts "customizeWindow"
 
     views_dictionary = {
         "artworkView" => artworkView,
@@ -240,7 +97,6 @@ class JukeboxControlsController < NSWindowController
   end
 
   def setCurrentTrack
-    puts "setCurrentTrack"
     new_message App.shared.delegate.current_track
     new_message App.shared.delegate.current_rating
   end
