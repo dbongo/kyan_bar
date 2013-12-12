@@ -1,6 +1,8 @@
 class AppDelegate
 
-  attr_accessor :reconn_interval, :jukebox
+  attr_accessor :reconn_interval, :jukebox, :current_track, :current_rating
+
+  attr_reader :jukeboxControls
 
   def applicationDidFinishLaunching(notification)
     build_jukebox
@@ -31,8 +33,19 @@ class AppDelegate
     App.shared.activateIgnoringOtherApps(true)
   end
 
+  def launch_jukebox_controls sender
+    @jukeboxControls ||= JukeboxControlsController.alloc.init
+    @jukeboxControls.display(self)
+    App.shared.activateIgnoringOtherApps(true)
+  end
+
+  def close_jukebox_controls
+    @jukeboxControls = nil
+  end
+
   def build_jukebox
-    @jukebox ||= KyanJukebox::Notify.new([:track, :playlist])
+    @jukebox ||= KyanJukebox::Notify.new([:track, :playlist, :rating])
+    @jukebox.notify_only << :rating # we want rating messages to come through
     @jukebox.json_parser = BW::JSON
   end
 
@@ -57,5 +70,16 @@ class AppDelegate
 
   def userNotificationCenter(center, shouldPresentNotification:notification)
     true
+  end
+
+  def new_notification message
+    case message
+    when ::KyanJukebox::Track
+      self.current_track = message
+    when ::KyanJukebox::Rating
+      self.current_rating = message
+    end
+    return unless jukeboxControls
+    jukeboxControls.new_message(message)
   end
 end
