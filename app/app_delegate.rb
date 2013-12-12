@@ -1,15 +1,14 @@
 class AppDelegate
 
-  attr_accessor :reconn_interval, :jukebox, :current_track, :current_rating
-
-  attr_reader :jukeboxControls
+  attr_accessor :jukebox
+  attr_accessor :current_track, :current_rating
+  attr_reader   :jukeboxControls
 
   def applicationDidFinishLaunching(notification)
     build_jukebox
     build_status
     handle_notifications
 
-    @reconn_interval = 0.0
     connect_to_websocket_server
   end
 
@@ -47,21 +46,33 @@ class AppDelegate
     @jukebox ||= KyanJukebox::Notify.new([:track, :playlist, :rating])
     @jukebox.notify_only << :rating # we want rating messages to come through
     @jukebox.json_parser = BW::JSON
+
+    @update_observer = App.notification_center.observe JB_MESSAGE_RECEIVED do |n|
+      update_jukebox(n.userInfo)
+    end
+  end
+
+  def update_jukebox(data)
+    json_txt = data[:msg].dataUsingEncoding(NSUTF8StringEncoding)
+
+    begin
+      @jukebox.update!(json_txt)
+    rescue BubbleWrap::JSON::ParserError
+    end
+
+    @jukebox.notifications.each do |message|
+      notification = NSUserNotification.alloc.init
+      notification.title = message.heading
+      notification.subtitle = message.subtitle
+      notification.informativeText = message.description
+
+      NSUserNotificationCenter.defaultUserNotificationCenter.scheduleNotification(notification)
+      updateJukeboxControls(message)
+    end
   end
 
   def connect_to_websocket_server
-    url = NSURL.URLWithString(WEBSOCKET_URL)
-    @websocket = SRWebSocket.new
-    @websocket.initWithURL(url)
-    @websocket.delegate = SRWebSocketDelegate
-    @websocket.open
-  end
-
-  def reconnect_to_websocket_server
-    self.reconn_interval = reconn_interval >= 0.1 ? reconn_interval * 2 : 0.1
-    self.reconn_interval = [60.0, reconn_interval].min
-
-    connect_to_websocket_server
+    @websocket_server ||= WebsocketConnector.new(WEBSOCKET_URL).connect
   end
 
   def handle_notifications
@@ -72,14 +83,16 @@ class AppDelegate
     true
   end
 
-  def new_notification message
+  private
+
+  def updateJukeboxControls
     case message
     when ::KyanJukebox::Track
       self.current_track = message
     when ::KyanJukebox::Rating
       self.current_rating = message
     end
-    return unless jukeboxControls
-    jukeboxControls.new_message(message)
+    jukeboxControls.new_message(message) if jukeboxControls
   end
+
 end
